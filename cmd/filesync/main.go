@@ -1,47 +1,49 @@
 package main
 
 import (
-	"fmt"
-	"io"
+	"github.com/pqt2p1/go-file-sync/internal/watcher"
+	"log"
 	"os"
+	"os/signal"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./filesync <source> <dest>")
-		os.Exit(1)
+	if len(os.Args) < 3 || os.Args[1] != "watch" {
+		log.Fatal("Usage: ./filesync watch <path>")
 	}
 
-	src, dst := os.Args[1], os.Args[2]
+	path := os.Args[2]
 
-	if err := copyFile(src, dst); err != nil {
-		fmt.Println("Error copying file:", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("Successfully copied file", src, "to", dst)
-}
-
-func copyFile(src, dst string) error {
-	// Open source file
-	sourceFile, err := os.Open(src)
+	// 1. Tạo FileWatcher
+	fileWatcher, err := watcher.NewFileWatcher()
 	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
+		log.Fatal(err)
 	}
-	defer sourceFile.Close()
 
-	// Create destination file
-	destFile, err := os.Create(dst)
+	// 2. Watch path
+	err = fileWatcher.Watch(path)
 	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
+		log.Fatal(err)
 	}
-	defer destFile.Close()
 
-	// Copy content
-	_, err = io.Copy(destFile, sourceFile)
+	// 3. Listen to events trong goroutine
+	go func() {
+		for event := range fileWatcher.Events {
+			log.Printf("File %s: %s", event.Operation, event.Path)
+		}
+	}()
+
+	// 4. Wait for Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+
+	log.Println("Watching... Press Ctrl+C to stop")
+	<-sigChan
+
+	// 5. Cleanup
+	log.Println("Stopping...")
+	err = fileWatcher.Close()
 	if err != nil {
-		return fmt.Errorf("failed to copy file: %w", err)
+		log.Fatal(err)
 	}
-
-	return nil
 }
