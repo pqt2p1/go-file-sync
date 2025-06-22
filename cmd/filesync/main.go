@@ -94,6 +94,28 @@ func main() {
 				// Submit job to pool
 				workerPool.SubmitJob(event.Path, destPath)
 			}
+
+			if event.Operation == "delete" {
+				// Remove from destination
+				relPath, err := filepath.Rel(sourceDir, event.Path)
+				if err != nil {
+					log.Printf("Failed to get relative path: %v", err)
+					continue
+				}
+
+				destPath := filepath.Join(destDir, relPath)
+
+				// Check if it's file or directory
+				if err := os.Remove(destPath); err != nil {
+					if err := os.RemoveAll(destPath); err != nil {
+						log.Printf("Failed to remove %s: %v", destPath, err)
+					} else {
+						log.Printf("Removed directory: %s", destPath)
+					}
+				} else {
+					log.Printf("Removed file: %s", destPath)
+				}
+			}
 		}
 	}()
 
