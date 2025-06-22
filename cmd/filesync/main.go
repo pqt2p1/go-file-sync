@@ -33,7 +33,7 @@ func main() {
 	}
 
 	// 2. Watch path
-	err = fileWatcher.Watch(sourceDir)
+	err = fileWatcher.WatchRecursive(sourceDir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,7 +60,17 @@ func main() {
 	// 6. Listen to events trong goroutine
 	go func() {
 		for event := range fileWatcher.Events {
-			if event.Operation == "write" {
+			log.Printf("DEBUG: Got event %s on %s", event.Operation, event.Path)
+			if event.Operation == "create" {
+				info, err := os.Stat(event.Path)
+				if err == nil && info.IsDir() {
+					log.Printf("New directory detected: %s", event.Path)
+					fileWatcher.Watch(event.Path)
+					continue
+				}
+			}
+
+			if event.Operation == "write" || event.Operation == "create" {
 				mu.Lock()
 				if lastTime, exists := lastSync[event.Path]; exists {
 					if time.Since(lastTime) < 500*time.Millisecond {

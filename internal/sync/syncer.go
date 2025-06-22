@@ -5,6 +5,7 @@ import (
 	"github.com/pqt2p1/go-file-sync/internal/checksum"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 type FileSyncer struct {
@@ -50,6 +51,12 @@ func (fs *FileSyncer) SyncFile(src, dest string, progress *Progress) error {
 }
 
 func (fs *FileSyncer) copyFile(src, dest string) error {
+	// Create parent dir if needed
+	destDir := filepath.Dir(dest)
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %v", destDir, err)
+	}
+
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err

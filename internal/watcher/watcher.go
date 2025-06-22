@@ -3,6 +3,7 @@ package watcher
 import (
 	"github.com/fsnotify/fsnotify"
 	"log"
+	"os"
 	"path/filepath"
 )
 
@@ -65,6 +66,26 @@ func (fw *FileWatcher) Watch(path string) error {
 	}
 	log.Printf("Watching: %s", absPath)
 	return fw.watcher.Add(absPath)
+}
+
+func (fw *FileWatcher) WatchRecursive(root string) error {
+	// Walk through all directories
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Only watch directories
+		if info.IsDir() {
+			log.Printf("Adding watch: %s", path)
+			if err := fw.watcher.Add(path); err != nil {
+				log.Printf("Failed to watch %s: %v", path, err)
+			}
+		}
+		return nil
+	})
+
+	return err
 }
 
 func (fw *FileWatcher) Close() error {
