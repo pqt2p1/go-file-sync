@@ -36,10 +36,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// 3. Create syncer
-	syncer := sync.NewFileSyncer()
+	// 3. Create worker pool
+	workerPool := sync.NewWorkerPool(5)
+	workerPool.Start()
 
-	// 3. Listen to events trong goroutine
+	// 4. Listen to events trong goroutine
 	go func() {
 		for event := range fileWatcher.Events {
 			if event.Operation == "create" || event.Operation == "write" {
@@ -55,12 +56,8 @@ func main() {
 				// Build destination path
 				destPath := filepath.Join(destDir, relPath)
 
-				// Sync file
-				if err := syncer.SyncFile(event.Path, destPath); err != nil {
-					log.Printf("Failed to sync %s: %v", event.Path, err)
-				} else {
-					log.Printf("Synced successfully  %s -> %s", event.Path, destPath)
-				}
+				// Submit job to pool
+				workerPool.SubmitJob(event.Path, destPath)
 			}
 		}
 	}()
