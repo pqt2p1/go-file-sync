@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"time"
 )
 
 func main() {
@@ -40,10 +41,21 @@ func main() {
 	workerPool := sync.NewWorkerPool(5)
 	workerPool.Start()
 
+	// 4. Start progress reporter
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			progress := workerPool.GetProgress()
+			progress.PrintProgress()
+		}
+	}()
+
 	// 4. Listen to events trong goroutine
 	go func() {
 		for event := range fileWatcher.Events {
-			if event.Operation == "create" || event.Operation == "write" {
+			if event.Operation == "write" {
 				log.Printf("Got event: %s on %s", event.Operation, event.Path) // Debug log!
 
 				// Get relative path from source

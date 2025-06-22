@@ -14,7 +14,7 @@ func NewFileSyncer() *FileSyncer {
 	return &FileSyncer{}
 }
 
-func (fs *FileSyncer) SyncFile(src, dest string) error {
+func (fs *FileSyncer) SyncFile(src, dest string, progress *Progress) error {
 	// 1. Check if destination exists
 	_, err := os.Stat(dest)
 	if err == nil {
@@ -39,9 +39,13 @@ func (fs *FileSyncer) SyncFile(src, dest string) error {
 		return fmt.Errorf("failed to compare: %v", err)
 	}
 	if !same {
-		return fmt.Errorf("copy verification failed", dest)
+		return fmt.Errorf("copy verification failed: %v", dest)
 	}
 
+	fileInfo, err := os.Stat(src)
+	if err == nil {
+		progress.AddBytes(fileInfo.Size())
+	}
 	return nil
 }
 
