@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	stdsync "sync"
 	"time"
 )
 
@@ -52,11 +53,23 @@ func main() {
 		}
 	}()
 
-	// 4. Listen to events trong goroutine
+	// 5. Debounce map
+	lastSync := make(map[string]time.Time)
+	var mu stdsync.Mutex // Protect concurrent map access
+
+	// 6. Listen to events trong goroutine
 	go func() {
 		for event := range fileWatcher.Events {
 			if event.Operation == "write" {
-				log.Printf("Got event: %s on %s", event.Operation, event.Path) // Debug log!
+				mu.Lock()
+				if lastTime, exists := lastSync[event.Path]; exists {
+					if time.Since(lastTime) < 500*time.Millisecond {
+						mu.Unlock()
+						continue
+					}
+				}
+				lastSync[event.Path] = time.Now()
+				mu.Unlock()
 
 				// Get relative path from source
 				relPath, err := filepath.Rel(sourceDir, event.Path)
@@ -74,7 +87,7 @@ func main() {
 		}
 	}()
 
-	// 4. Wait for Ctrl+C
+	// 7. Graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
